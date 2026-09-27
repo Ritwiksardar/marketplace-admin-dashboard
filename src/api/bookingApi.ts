@@ -101,7 +101,7 @@ const backendStatusMap: Record<BookingStatus, string> = {
 
 export const bookingApi = {
   list: async (): Promise<Booking[]> => {
-    const response = await apiClient.get<{ success?: boolean; bookings?: BookingApiRecord[] }>('/admin/bookings/all');
+    const response = await apiClient.get<{ success?: boolean; bookings?: BookingApiRecord[] }>('/admin/bookings');
     const bookings = response.data.bookings ?? [];
     return bookings.map(normalizeBooking);
   },
@@ -121,10 +121,9 @@ export const bookingApi = {
   },
 
   assignProvider: async (bookingId: string, providerId: string): Promise<void> => {
-    await apiClient.patch('/bookings/assign', {
+    await apiClient.patch('/admin/bookings/assign', {
       bookingId,
       providerId,
-      status: 'accepted',
     });
   },
 
