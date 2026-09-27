@@ -100,6 +100,9 @@ export interface Booking {
   status: BookingStatus;
   paymentStatus: PaymentStatus;
   createdAt: string;
+  customerName?: string;
+  serviceName?: string;
+  providerName?: string;
 }
 
 export type PageKey =

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Category } from '../types';
 import Modal from '../components/Modal';
 import { ToggleSwitch, ConfirmDialog } from '../components/Controls';
+import { catalogApi } from '../api/catalogApi';
 
 interface Props {
   categories: Category[];
@@ -16,6 +17,29 @@ const CategoriesPage: React.FC<Props> = ({ categories, setCategories }) => {
   const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadCategories = async () => {
+      try {
+        const data = await catalogApi.getCategories();
+        if (active) {
+          setCategories(data);
+        }
+      } catch (error) {
+        console.error('Failed to load categories from API:', error);
+      }
+    };
+
+    if (!categories.length) {
+      void loadCategories();
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [categories.length, setCategories]);
 
   const filtered = categories.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase())
@@ -33,34 +57,84 @@ const CategoriesPage: React.FC<Props> = ({ categories, setCategories }) => {
     setModalOpen(true);
   };
 
-  const save = () => {
+  const save = async () => {
     if (!form.name.trim()) return;
-    if (editing) {
-      setCategories((prev) =>
-        prev.map((c) => (c.id === editing.id ? { ...c, name: form.name, image: form.image || c.image } : c))
-      );
-    } else {
-      const newCat: Category = {
-        id: `cat-${Date.now()}`,
-        name: form.name,
-        image: form.image || `https://picsum.photos/seed/${Date.now()}/200/200`,
-        status: 'active',
-        subCategoryCount: 0,
-        createdAt: new Date().toISOString().slice(0, 10),
-      };
-      setCategories((prev) => [newCat, ...prev]);
+
+    try {
+      if (editing) {
+        const response = await catalogApi.updateCategory(editing.id, {
+          name: form.name,
+          description: 'Updated from admin panel',
+          image: form.image || editing.image,
+          isActive: editing.status === 'active',
+        });
+
+        const updatedCategory = response.data?.category ?? response.data ?? editing;
+        setCategories((prev) =>
+          prev.map((c) =>
+            c.id === editing.id
+              ? {
+                  ...c,
+                  name: updatedCategory?.name ?? form.name,
+                  image: form.image || c.image,
+                  status: updatedCategory?.isActive === false ? 'inactive' : 'active',
+                }
+              : c
+          )
+        );
+      } else {
+        const response = await catalogApi.createCategory({
+          name: form.name,
+          description: 'Created from admin panel',
+          isActive: true,
+          image: form.image || `https://picsum.photos/seed/${Date.now()}/200/200`,
+        });
+
+        const createdCategory = response.data?.category ?? response.data;
+        const newCat: Category = {
+          id: createdCategory?.id ?? `cat-${Date.now()}`,
+          name: createdCategory?.name ?? form.name,
+          image: form.image || `https://picsum.photos/seed/${Date.now()}/200/200`,
+          status: createdCategory?.isActive === false ? 'inactive' : 'active',
+          subCategoryCount: 0,
+          createdAt: createdCategory?.createdAt ?? new Date().toISOString().slice(0, 10),
+        };
+
+        setCategories((prev) => [newCat, ...prev]);
+      }
+    } catch (error) {
+      console.error('Failed to save category:', error);
     }
+
     setModalOpen(false);
   };
 
-  const toggleStatus = (id: string) => {
-    setCategories((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: c.status === 'active' ? 'inactive' : 'active' } : c))
-    );
+  const toggleStatus = async (id: string) => {
+    const category = categories.find((c) => c.id === id);
+    if (!category) return;
+
+    const nextStatus = category.status === 'active' ? 'inactive' : 'active';
+
+    try {
+      await catalogApi.updateCategory(id, { isActive: nextStatus === 'active' });
+      setCategories((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: nextStatus } : c))
+      );
+    } catch (error) {
+      console.error('Failed to update category status:', error);
+    }
   };
 
-  const remove = () => {
-    setCategories((prev) => prev.filter((c) => c.id !== deleteId));
+  const remove = async () => {
+    if (!deleteId) return;
+
+    try {
+      await catalogApi.deleteCategory(deleteId);
+      setCategories((prev) => prev.filter((c) => c.id !== deleteId));
+    } catch (error) {
+      console.error('Failed to delete category:', error);
+    }
+
     setDeleteId(null);
   };
 

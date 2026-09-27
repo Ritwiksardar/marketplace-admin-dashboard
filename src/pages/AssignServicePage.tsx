@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Booking, Customer, Provider, Service } from '../types';
 import Modal from '../components/Modal';
 import { BookingStatusBadge } from '../components/Controls';
+import { bookingApi, getAllServicesProviders } from '../Services/BookingApi';
 
 interface Props {
   bookings: Booking[];
@@ -9,25 +10,41 @@ interface Props {
   customers: Customer[];
   services: Service[];
   providers: Provider[];
+  isLoading: boolean;
+  error: string;
 }
 
-const AssignServicePage: React.FC<Props> = ({ bookings, setBookings, customers, services, providers }) => {
+const AssignServicePage: React.FC<Props> = ({ bookings, setBookings, customers, services, providers, isLoading, error }) => {
   const [active, setActive] = useState<Booking | null>(null);
   const [chosenProvider, setChosenProvider] = useState<string>('');
+  const [availableProviders, setAvailableProviders] = useState<Provider[]>(providers);
 
-  const customerName = (id: string) => customers.find((c) => c.id === id)?.name ?? 'Unknown';
-  const service = (id: string) => services.find((s) => s.id === id);
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadProviders = async () => {
+      try {
+        const response = await getAllServicesProviders();
+        if (isMounted) setAvailableProviders(response);
+      } catch (providerError) {
+        console.error('Failed to load providers:', providerError);
+      }
+    };
+
+    void loadProviders();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const customerName = (booking: Booking) => booking.customerName ?? customers.find((c) => c.id === booking.customerId)?.name ?? 'Unknown';
+  const serviceName = (booking: Booking) => booking.serviceName ?? services.find((s) => s.id === booking.serviceId)?.name ?? 'Unknown service';
 
   const unassigned = bookings.filter((b) => !b.providerId && b.status !== 'cancelled' && b.status !== 'completed');
+  const activeBookings = bookings.filter((b) => b.status !== 'cancelled' && b.status !== 'completed');
 
   const eligibleProviders = (booking: Booking) => {
-    const svc = service(booking.serviceId);
-    if (!svc) return providers.filter((p) => p.approvalStatus === 'approved' && p.status === 'active');
-    return providers.filter(
-      (p) =>
-        p.approvalStatus === 'approved' &&
-        p.status === 'active'
-    );
+    return availableProviders.filter((provider) => provider.status !== 'inactive' && provider.approvalStatus !== 'rejected');
   };
 
   const openAssign = (b: Booking) => {
@@ -35,12 +52,23 @@ const AssignServicePage: React.FC<Props> = ({ bookings, setBookings, customers, 
     setChosenProvider('');
   };
 
-  const confirmAssign = () => {
+  const confirmAssign = async () => {
     if (!active || !chosenProvider) return;
-    setBookings((prev) =>
-      prev.map((b) => (b.id === active.id ? { ...b, providerId: chosenProvider, status: 'assigned' } : b))
-    );
-    setActive(null);
+
+    try {
+      await bookingApi.assignProvider(active.id, chosenProvider);
+      setBookings((prev) =>
+        prev.map((b) => (b.id === active.id ? {
+          ...b,
+          providerId: chosenProvider,
+          status: 'assigned',
+          providerName: availableProviders.find((provider) => provider.id === chosenProvider)?.name,
+        } : b))
+      );
+      setActive(null);
+    } catch (error) {
+      console.error('Failed to assign provider:', error);
+    }
   };
 
   return (
@@ -69,21 +97,32 @@ const AssignServicePage: React.FC<Props> = ({ bookings, setBookings, customers, 
             </tr>
           </thead>
           <tbody>
-            {unassigned.map((b) => {
-              const svc = service(b.serviceId);
+            {isLoading && (
+              <tr><td colSpan={6} className="empty-row">Loading bookings...</td></tr>
+            )}
+            {!isLoading && error && (
+              <tr><td colSpan={6} className="empty-row">{error}</td></tr>
+            )}
+            {!isLoading && !error && activeBookings.map((b) => {
               return (
                 <tr key={b.id}>
                   <td className="mono">{b.bookingCode}</td>
-                  <td>{customerName(b.customerId)}</td>
-                  <td>{svc?.name ?? 'Unknown service'}</td>
+                  <td>{customerName(b)}</td>
+                  <td>{serviceName(b)}</td>
                   <td>{b.scheduledDate} · {b.scheduledTime}</td>
                   <td><BookingStatusBadge status={b.status} /></td>
-                  <td><button className="btn btn-primary btn-sm" onClick={() => openAssign(b)}>Assign provider</button></td>
+                  <td>
+                    {b.providerId ? (
+                      <span className="muted">Assigned</span>
+                    ) : (
+                      <button className="btn btn-primary btn-sm" onClick={() => openAssign(b)}>Assign provider</button>
+                    )}
+                  </td>
                 </tr>
               );
             })}
-            {unassigned.length === 0 && (
-              <tr><td colSpan={6} className="empty-row">All bookings currently have a provider assigned.</td></tr>
+            {!isLoading && !error && activeBookings.length === 0 && (
+              <tr><td colSpan={6} className="empty-row">No active bookings available.</td></tr>
             )}
           </tbody>
         </table>
@@ -92,7 +131,7 @@ const AssignServicePage: React.FC<Props> = ({ bookings, setBookings, customers, 
       {active && (
         <Modal title={`Assign provider · ${active.bookingCode}`} onClose={() => setActive(null)} width={520}>
           <p className="muted" style={{ marginBottom: 12 }}>
-            Service: <strong>{service(active.serviceId)?.name}</strong> on {active.scheduledDate} at {active.scheduledTime}
+            Service: <strong>{serviceName(active)}</strong> on {active.scheduledDate} at {active.scheduledTime}
           </p>
           <div className="provider-pick-list">
             {eligibleProviders(active).map((p) => (

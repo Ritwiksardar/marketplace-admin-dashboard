@@ -58,7 +58,7 @@ const CustomersPage: React.FC<Props> = ({ customers, setCustomers }) => {
                 </td>
                 <td>{c.phone}</td>
                 <td>{c.totalBookings}</td>
-                <td>৳{c.totalSpent.toLocaleString()}</td>
+                <td>₹ {c.totalSpent.toLocaleString()}</td>
                 <td>{c.joinedAt}</td>
                 <td><ToggleSwitch status={c.status} onChange={() => toggleStatus(c.id)} /></td>
               </tr>

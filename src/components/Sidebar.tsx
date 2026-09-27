@@ -16,6 +16,9 @@ interface SidebarProps {
   pendingAssign: number;
   isCollapsed: boolean;
   onToggle: () => void;
+  onLogout?: () => void;
+  userName?: string;
+  userRole?: string;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -25,6 +28,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   pendingAssign,
   isCollapsed,
   onToggle,
+  onLogout,
+  userName = 'Admin User',
+  userRole = 'Super Admin',
 }) => {
   const items: NavItem[] = [
     { key: 'dashboard', label: 'Dashboard', icon: '◧', group: 'Overview' },
@@ -86,10 +92,36 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="sidebar-footer">
         <img src="https://picsum.photos/seed/admin/64/64" alt="" className="footer-avatar" />
         {!isCollapsed && (
-          <div>
-            <div className="footer-name">Admin User</div>
-            <div className="footer-role">Super Admin</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="footer-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {userName}
+            </div>
+            <div className="footer-role" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {userRole}
+            </div>
           </div>
+        )}
+        {onLogout && (
+          <button
+            type="button"
+            onClick={onLogout}
+            title="Sign out"
+            aria-label="Sign out"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#f87171',
+              cursor: 'pointer',
+              fontSize: '18px',
+              padding: '4px 6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '4px',
+            }}
+          >
+            ↪
+          </button>
         )}
       </div>
     </aside>

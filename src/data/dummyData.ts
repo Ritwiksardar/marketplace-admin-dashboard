@@ -11,13 +11,13 @@ import type {
 const img = (seed: string) =>
   `https://picsum.photos/seed/${seed}/200/200`;
 
-export const initialCategories: Category[] = [
-  { id: 'cat-1', name: 'Home Cleaning', image: img('cleaning'), status: 'active', subCategoryCount: 3, createdAt: '2026-01-12' },
-  { id: 'cat-2', name: 'Electrician', image: img('electric'), status: 'active', subCategoryCount: 2, createdAt: '2026-01-15' },
-  { id: 'cat-3', name: 'Plumbing', image: img('plumb'), status: 'active', subCategoryCount: 2, createdAt: '2026-01-18' },
-  { id: 'cat-4', name: 'Beauty & Spa', image: img('beauty'), status: 'active', subCategoryCount: 3, createdAt: '2026-02-02' },
-  { id: 'cat-5', name: 'Appliance Repair', image: img('appliance'), status: 'inactive', subCategoryCount: 1, createdAt: '2026-02-20' },
-];
+// export const initialCategories: Category[] = [
+//   { id: 'cat-1', name: 'Home Cleaning', image: img('cleaning'), status: 'active', subCategoryCount: 3, createdAt: '2026-01-12' },
+//   { id: 'cat-2', name: 'Electrician', image: img('electric'), status: 'active', subCategoryCount: 2, createdAt: '2026-01-15' },
+//   { id: 'cat-3', name: 'Plumbing', image: img('plumb'), status: 'active', subCategoryCount: 2, createdAt: '2026-01-18' },
+//   { id: 'cat-4', name: 'Beauty & Spa', image: img('beauty'), status: 'active', subCategoryCount: 3, createdAt: '2026-02-02' },
+//   { id: 'cat-5', name: 'Appliance Repair', image: img('appliance'), status: 'inactive', subCategoryCount: 1, createdAt: '2026-02-20' },
+// ];
 
 export const initialSubCategories: SubCategory[] = [
   { id: 'sub-1', categoryId: 'cat-1', name: 'Deep Cleaning', image: img('deepclean'), status: 'active', createdAt: '2026-01-13' },

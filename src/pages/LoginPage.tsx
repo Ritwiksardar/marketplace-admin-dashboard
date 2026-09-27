@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { authApi } from '../Services/BookingApi';
+import { useAppDispatch, setCredentials } from '../store';
 
 interface LoginPageProps {
     onLogin: () => void;
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+    const dispatch = useAppDispatch();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -37,6 +39,21 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handleDemoLogin = () => {
+        dispatch(
+            setCredentials({
+                token: 'demo-admin-token-' + Date.now(),
+                user: {
+                    id: 'admin-01',
+                    name: 'Admin User',
+                    email: email.trim() || 'admin@servicehub.com',
+                    role: 'Super Admin',
+                },
+            })
+        );
+        onLogin();
     };
 
     return (
@@ -78,6 +95,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
                     <button className="btn btn-primary login-submit" type="submit" disabled={isSubmitting}>
                         {isSubmitting ? 'Signing in...' : 'Sign in'}
+                    </button>
+
+                    <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ marginTop: '10px', width: '100%' }}
+                        onClick={handleDemoLogin}
+                    >
+                        Sign in with Demo Account
                     </button>
                 </form>
             </section>

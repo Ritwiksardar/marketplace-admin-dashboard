@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { SubCategory, Service } from '../types';
 import Modal from '../components/Modal';
 import { ToggleSwitch, ConfirmDialog } from '../components/Controls';
+import { catalogApi } from '../api/catalogApi';
 
 interface Props {
   subCategories: SubCategory[];
@@ -17,6 +18,29 @@ const ServicesPage: React.FC<Props> = ({ subCategories, services, setServices })
   const [editing, setEditing] = useState<Service | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadServices = async () => {
+      try {
+        const data = await catalogApi.getServices();
+        if (active) {
+          setServices(data);
+        }
+      } catch (error) {
+        console.error('Failed to load services from API:', error);
+      }
+    };
+
+    if (!services.length) {
+      void loadServices();
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [services.length, setServices]);
 
   const subName = (id: string) => subCategories.find((s) => s.id === id)?.name ?? 'Unknown';
 
@@ -41,48 +65,96 @@ const ServicesPage: React.FC<Props> = ({ subCategories, services, setServices })
     setModalOpen(true);
   };
 
-  const save = () => {
+  const save = async () => {
     if (!form.name.trim() || !form.subCategoryId || !form.price) return;
-    if (editing) {
-      setServices((prev) =>
-        prev.map((s) =>
-          s.id === editing.id
-            ? {
-                ...s,
-                name: form.name,
-                image: form.image || s.image,
-                subCategoryId: form.subCategoryId,
-                price: Number(form.price),
-                duration: form.duration,
-                description: form.description,
-              }
-            : s
-        )
-      );
-    } else {
-      const newSvc: Service = {
-        id: `srv-${Date.now()}`,
-        subCategoryId: form.subCategoryId,
-        name: form.name,
-        image: form.image || `https://picsum.photos/seed/${Date.now()}/200/200`,
-        price: Number(form.price),
-        duration: form.duration || '1 hr',
-        description: form.description,
-        status: 'active',
-      };
-      setServices((prev) => [newSvc, ...prev]);
+
+    try {
+      if (editing) {
+        const response = await catalogApi.updateService(editing.id, {
+          name: form.name,
+          description: form.description,
+          basePrice: Number(form.price),
+          duration: form.duration,
+          image: form.image || editing.image,
+          category_id: form.subCategoryId,
+          isActive: editing.status === 'active',
+        });
+
+        const updatedService = response.data?.service ?? response.data ?? editing;
+        setServices((prev) =>
+          prev.map((s) =>
+            s.id === editing.id
+              ? {
+                  ...s,
+                  name: updatedService?.name ?? form.name,
+                  image: form.image || s.image,
+                  subCategoryId: form.subCategoryId,
+                  price: Number(updatedService?.basePrice ?? form.price),
+                  duration: updatedService?.duration ? `${updatedService.duration} min` : (form.duration || '1 hr'),
+                  description: updatedService?.description ?? form.description,
+                  status: updatedService?.isActive === false ? 'inactive' : 'active',
+                }
+              : s
+          )
+        );
+      } else {
+        const response = await catalogApi.createService({
+          name: form.name,
+          description: form.description,
+          basePrice: Number(form.price),
+          duration: form.duration,
+          isActive: true,
+          image: form.image || `https://picsum.photos/seed/${Date.now()}/200/200`,
+          category_id: form.subCategoryId,
+        });
+
+        const createdService = response.data?.service ?? response.data;
+        const newSvc: Service = {
+          id: createdService?.id ?? `srv-${Date.now()}`,
+          subCategoryId: createdService?.category_id ?? form.subCategoryId,
+          name: createdService?.name ?? form.name,
+          image: createdService?.image ?? (form.image || `https://picsum.photos/seed/${Date.now()}/200/200`),
+          price: Number(createdService?.basePrice ?? form.price),
+          duration: createdService?.duration ? `${createdService.duration} min` : (form.duration || '1 hr'),
+          description: createdService?.description ?? form.description,
+          status: createdService?.isActive === false ? 'inactive' : 'active',
+        };
+
+        setServices((prev) => [newSvc, ...prev]);
+      }
+    } catch (error) {
+      console.error('Failed to save service:', error);
     }
+
     setModalOpen(false);
   };
 
-  const toggleStatus = (id: string) => {
-    setServices((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, status: s.status === 'active' ? 'inactive' : 'active' } : s))
-    );
+  const toggleStatus = async (id: string) => {
+    const service = services.find((s) => s.id === id);
+    if (!service) return;
+
+    const nextStatus = service.status === 'active' ? 'inactive' : 'active';
+
+    try {
+      await catalogApi.updateService(id, { isActive: nextStatus === 'active' });
+      setServices((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, status: nextStatus } : s))
+      );
+    } catch (error) {
+      console.error('Failed to update service status:', error);
+    }
   };
 
-  const remove = () => {
-    setServices((prev) => prev.filter((s) => s.id !== deleteId));
+  const remove = async () => {
+    if (!deleteId) return;
+
+    try {
+      await catalogApi.deleteService(deleteId);
+      setServices((prev) => prev.filter((s) => s.id !== deleteId));
+    } catch (error) {
+      console.error('Failed to delete service:', error);
+    }
+
     setDeleteId(null);
   };
 
@@ -123,7 +195,7 @@ const ServicesPage: React.FC<Props> = ({ subCategories, services, setServices })
                   </div>
                 </td>
                 <td>{subName(svc.subCategoryId)}</td>
-                <td>৳{svc.price}</td>
+                <td>₹ {svc.price}</td>
                 <td>{svc.duration}</td>
                 <td><ToggleSwitch status={svc.status} onChange={() => toggleStatus(svc.id)} /></td>
                 <td>
@@ -155,7 +227,7 @@ const ServicesPage: React.FC<Props> = ({ subCategories, services, setServices })
           </label>
           <div className="field-row">
             <label className="field">
-              <span>Price (৳)</span>
+              <span>Price (₹)</span>
               <input className="input" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="999" />
             </label>
             <label className="field">

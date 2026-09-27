@@ -10,9 +10,15 @@ interface Props {
 }
 
 const DashboardPage: React.FC<Props> = ({ bookings, customers, providers, services }) => {
+  const formatCurrency = (value: number) => `₹ ${Number(value || 0).toLocaleString()}`;
+
   const totalRevenue = bookings
-    .filter((b) => b.paymentStatus === 'paid')
-    .reduce((sum, b) => sum + b.amount, 0);
+    .filter((b) => {
+      const payment = String(b.paymentStatus ?? '').toLowerCase();
+      const status = String(b.status ?? '').toLowerCase();
+      return payment === 'paid' || payment === 'completed' || status === 'completed';
+    })
+    .reduce((sum, b) => sum + Number(b.amount || 0), 0);
 
   const pendingApprovals = providers.filter((p) => p.approvalStatus === 'pending').length;
   const unassigned = bookings.filter((b) => !b.providerId && b.status !== 'cancelled').length;
@@ -25,9 +31,9 @@ const DashboardPage: React.FC<Props> = ({ bookings, customers, providers, servic
 
   const stats = [
     { label: 'Total bookings', value: bookings.length, hint: `${unassigned} awaiting a provider` },
-    { label: 'Revenue collected', value: `৳${totalRevenue.toLocaleString()}`, hint: 'From paid bookings' },
+    { label: 'Revenue collected', value: formatCurrency(totalRevenue), hint: 'From paid bookings' },
     { label: 'Active providers', value: activeProviders, hint: `${pendingApprovals} pending approval` },
-    { label: 'Customers', value: customers.length, hint: `${customers.filter(c=>c.status==='active').length} active` },
+    { label: 'Customers', value: customers.length, hint: `${customers.filter(c => c.status === 'active').length} active` },
   ];
 
   return (
@@ -71,7 +77,7 @@ const DashboardPage: React.FC<Props> = ({ bookings, customers, providers, servic
                 <td>{customerName(b.customerId)}</td>
                 <td>{serviceName(b.serviceId)}</td>
                 <td>{b.scheduledDate} · {b.scheduledTime}</td>
-                <td>৳{b.amount}</td>
+                <td>₹ {b.amount}</td>
                 <td><BookingStatusBadge status={b.status} /></td>
               </tr>
             ))}
