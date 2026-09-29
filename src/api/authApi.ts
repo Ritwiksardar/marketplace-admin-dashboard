@@ -55,7 +55,7 @@ const getNestedValue = <T>(payload: Record<string, unknown>, key: string): T | u
 
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<LoginResponse> => {
-    const response = await apiClient.post<LoginResponse>('/auth/email/login', credentials);
+    const response = await apiClient.post<LoginResponse>('/auth/email/login?r=admin', credentials);
     const payload = (response.data ?? {}) as Record<string, unknown>;
     const token = (getNestedValue<string>(payload, 'token') ?? getNestedValue<string>(payload, 'accessToken')) ?? '';
     const user = normalizeUser((getNestedValue<LoginUser>(payload, 'user') ?? (payload.data as Record<string, unknown> | undefined)?.user) as LoginUser | undefined);
